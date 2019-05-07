@@ -2,42 +2,22 @@ package edu.iis.mto.time;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.joda.time.DateTime;
 import org.joda.time.Hours;
 
-public class Order extends Clock {
+public class Order {
 	private static final int VALID_PERIOD_HOURS = 24;
 	private State orderState;
 	private List<OrderItem> items = new ArrayList<OrderItem>();
 	private Instant subbmitionDate;
+	private Clock clock;
 
-	private final Instant WHEN_STARTED = Instant.now();
-	private final ZoneId DEFAULT_TZONE = ZoneId.systemDefault();
-	private long count = 0;
-
-	private Instant nextInstant(){
-		++count;
-		return WHEN_STARTED.plusSeconds(count);
-	}
-
-	@Override public ZoneId getZone(){
-	    return DEFAULT_TZONE;
-    }
-
-    @Override public Clock withZone(ZoneId zoneId){
-	    return Clock.fixed(WHEN_STARTED, zoneId);
-    }
-
-    @Override public Instant instant(){
-	    return nextInstant();
-    }
-
-	public Order() {
+	public Order(Clock clock) {
 		orderState = State.CREATED;
+		this.clock = clock;
 	}
 
 	public void addItem(OrderItem item) {
@@ -52,13 +32,16 @@ public class Order extends Clock {
 		requireState(State.CREATED);
 
 		orderState = State.SUBMITTED;
-		subbmitionDate = Instant.now().plusSeconds(-90001);
+		subbmitionDate = clock.instant();
 
 	}
 
 	public void confirm() {
 		requireState(State.SUBMITTED);
-        int hoursElapsedAfterSubmittion = Hours.hoursBetween(DateTime.parse(subbmitionDate.toString()), new DateTime()).getHours();
+		int hoursElapsedAfterSubmittion = Hours.hoursBetween(new org.joda.time.Instant(subbmitionDate.toEpochMilli()),
+				new org.joda.time.Instant(clock.instant()
+						.toEpochMilli()))
+				.getHours();
 		if(hoursElapsedAfterSubmittion > VALID_PERIOD_HOURS){
 			orderState = State.CANCELLED;
 			throw new OrderExpiredException();
